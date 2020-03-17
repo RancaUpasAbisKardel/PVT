@@ -4,42 +4,27 @@ def sg_gas(mwg):
     return y
 
 
-def nat_gas_Ppc(yg):
+def nat_gas_Ppc_Tpc(yg):
     # Pseudo-critical Pressure for Common Natural Gas Reservoirs
     Ppc = 677 + 15*yg - 37.5*pow(yg, 2)
-    return Ppc
-
-
-def nat_gas_Tpc(yg):
-    # Pseudo-critical Temperature for Common Natural Gas Reservoirs
     Tpc = 168 + 325*yg - 12.5*pow(yg, 2)
-    return Tpc
+    return Ppc, Tpc
 
 
-def gas_cond_Ppc(yg):
+def gas_cond_Ppc_Tpc(yg):
     # Pseudo-critical Pressure for Common Gas Condensate Reservoirs
-    y = 706 - 51.7*yg - 11.1*pow(yg, 2)
-    return y
+    ppc = 706 - 51.7*yg - 11.1*pow(yg, 2)
+    tpc = 187 + 330*yg - 71.5*pow(yg, 2)
+    return ppc, tpc
 
 
-def gas_cond_Tpc(yg):
-    # Pseudo-critical Temperature for Common Gas Condensate Reservoirs
-    y = 187 + 330*yg - 71.5*pow(yg, 2)
-    return y
-
-
-def Ppr(p, ppc):
+def Ppr(p, t, ppc, tpc):
     # Pseudo-reduced pressure
     # p in psia
-    y = p/ppc
-    return y
-
-
-def Tpr(t, tpc):
-    # Pseudo-reduced temperature
-    # t in R
-    y = t/tpc
-    return y
+    # t in F
+    ppr = p/ppc
+    tpr = (t+460)/tpc
+    return ppr, tpr
 
 
 def Ppc_Tpc_WichertAziz_correction(Ppc, Tpc, yh2s, yco2):
@@ -58,11 +43,12 @@ def Ppc_Tpc_CarrKobayashiBurrows_Correction(Ppc, Tpc, yh2s, yco2, yn2):
     # only applicable to natural gas
     # yh2s, yco2, yn2 : mole fraction of H2S, CO2, N2
     tpc2 = Tpc - 80*yco2 + 130*yh2s - 250*yn2
-    ppc2 = Ppc - 440*yco2 + 600*yh2s - 170*yn2
+    ppc2 = Ppc + 440*yco2 + 600*yh2s - 170*yn2
     return ppc2, tpc2
 
 
-def z_HallYarborough(tpr, ppr):
+# Gas Compressibility Factor (z)
+def z_HallYarborough(ppr, tpr):
     t = 1/tpr
     # initial guess
     y = 0.0125*ppr*t*pow(2.718281828, -1.2*pow(1-t, 2))
@@ -79,4 +65,29 @@ def z_HallYarborough(tpr, ppr):
         err = abs(y-yy)
         y = yy
     z = (0.06125*ppr*t/y)*pow(2.718281828, -1.2*pow(1-t, 2))
+    return z
+
+
+def z_DranchukAbouKassem(ppr, tpr):
+    ec = 2.718281828    # constant e value
+    a = [0, 0.3265, -1.07, -0.5339, 0.01569, -0.05165,
+          0.5475, -0.7361, 0.1844, 0.1056, 0.6134, 0.721]
+    r1 = a[1] + (a[2]/pow(tpr, 1)) + (a[3]/pow(tpr, 3)) + (a[4]/pow(tpr, 4)) + (a[5]/pow(tpr, 5))
+    r2 = 0.27*(ppr/tpr)
+    r3 = a[6] + (a[7]/pow(tpr, 1)) + (a[8]/pow(tpr, 2))
+    r4 = a[9]*((a[7]/pow(tpr, 1))+(a[8]/pow(tpr, 2)))
+    r5 = (a[10]/pow(tpr, 3))
+    # Initial Guess
+    err = 100
+    y = 0.27*(ppr/tpr)
+    fy = r1*y - (r2/y) + r3*(pow(y, 2)) - r4*pow(y, 5) + \
+         r5*(1+a[11]*pow(y, 2))*pow(ec, -a[11]*pow(y, 2)) + 1
+    while err > pow(10, -12):
+        fdy = r1 + r2*pow(y, -2) + 2*r3*y - 5*r4*pow(y, 4) + \
+              2*r5*y*pow(ec, -a[11]*pow(y, 2))*(1+2*a[11]*pow(y, 3)) - \
+              a[11]*pow(y, 2)*(1+a[11]*pow(y, 2))
+        yy = y - fy/fdy
+        err = abs(y - yy)
+        y = yy
+    z = 0.27*ppr/(tpr*y)
     return z
