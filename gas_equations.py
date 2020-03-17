@@ -42,6 +42,26 @@ def Tpr(t, tpc):
     return y
 
 
+def Ppc_Tpc_WichertAziz_correction(Ppc, Tpc, yh2s, yco2):
+    # yh2s : mole fraction of H2S in gas mixture
+    # yco2 : mole fraction of CO2 in gas mixture
+    # applicable for natural gas and gas condensate
+    a = yh2s + yco2
+    b = yco2
+    e = 120*(pow(a, 0.9)-pow(a, 1.6))+15*(pow(b, 0.5)-pow(b, 4))
+    tpc2 = Tpc - e
+    ppc2 = (Ppc*tpc2)/(Tpc+b*(1-b)*e)
+    return ppc2, tpc2
+
+
+def Ppc_Tpc_CarrKobayashiBurrows_Correction(Ppc, Tpc, yh2s, yco2, yn2):
+    # only applicable to natural gas
+    # yh2s, yco2, yn2 : mole fraction of H2S, CO2, N2
+    tpc2 = Tpc - 80*yco2 + 130*yh2s - 250*yn2
+    ppc2 = Ppc - 440*yco2 + 600*yh2s - 170*yn2
+    return ppc2, tpc2
+
+
 def z_HallYarborough(tpr, ppr):
     t = 1/tpr
     # initial guess
